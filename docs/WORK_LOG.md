@@ -127,3 +127,59 @@
 - 非適風日数判定ロジック(強風/弱風閾値は可変)
 - `optimize_r.py`:Rのグリッドサーチで非適風日数合計が最小になるRを探索
 - 既知の入力での換算・判定ロジックのテスト
+
+---
+
+## 2026-09-18 (続き3): Phase 3 — 核心分析機能(風向-気温相関 + R値最適化)
+
+**やったこと:**
+- `src/storage/queries.py` を新設し、Phase 2 の `processing/run.py` にあった
+  「city/期間で観測データをDataFrameとして読み込む」ロジックを `load_observations()` として
+  共通化(2箇所目の利用が出たタイミングでの抽出、`processing/run.py` 側もこれを使うよう修正)
+- `src/storage/models.py` に `RWindOptimizationResult`(`analysis_r_optimization` テーブル、
+  README §9 のスキーマ + `city` 列を追加。複数都市の結果が衝突しないようにするため)
+- `src/analysis/wind_comfort.py`:
+  - `pedestrian_wind_speed()`:`R × observed wind_speed`
+  - `daily_max_pedestrian_wind_speed()`:日別の代表値として日最大値を採用
+    (Lawson基準のような厳密な超過確率評価ではなく簡略化した日次判定。README §8の
+    「精度の完全再現は求めない」方針に沿った判断)
+  - `classify_uncomfortable_days()`:日最大の歩行者高度風速が強風閾値(既定5.0 m/s)を
+    超えたら強風不適日、弱風閾値(既定1.0 m/s)を下回ったら弱風不適日
+  - `wind_direction_temperature_stats()`:風向8方位ごとの気温 mean/std/count
+- `src/analysis/optimize_r.py`:
+  - `optimize_r()`:R を `r_min`〜`r_max`(既定0.3〜1.0、既定step 0.01)でグリッドサーチし、
+    各Rでの強風/弱風/合計不適日数を `DataFrame(columns=[r, strong_wind_days,
+    weak_wind_days, total_days])` として返す
+  - `find_optimal_r()`:合計不適日数が最小の行を返す(同点の場合は最小のRを採用)
+- `src/analysis/run.py`:`python -m src.analysis.run --city --start --end [--r-min --r-max
+  --r-step --strong-threshold --weak-threshold --plot PATH]` CLI。
+  processed_observations を読み込み→風向-気温統計を表示→Rグリッドサーチ実行→
+  結果を `analysis_r_optimization` に削除後再書き込み(期間指定で冪等)→最適Rを表示→
+  `--plot` 指定時は matplotlib(Aggバックエンド)で「不適日数 vs R」のPNGを保存
+- 依存関係に `numpy`, `matplotlib` を追加
+- `tests/test_analysis.py`:14ケース追加。境界値の浮動小数点誤差を避けるため、
+  「全域で快適(total_days=0固定)」「全域で不快適(total_days=2固定)」「両端が
+  不快適で中央に最小値0が来るU字型」という3パターンを意図的に作って検証
+  (単一の厳密な閾値ちょうどの点をピンポイントで assert するのは避けた)。
+  `run()` の再実行が重複せず置き換わることも確認。ruff / pytest 全通過(28 passed)
+- 実環境での動作確認:`python -m src.analysis.run --city tokyo --start 2024-06-01
+  --end 2024-06-02 --plot <path>` を実行。風向別気温統計表とPNGプロットが正しく出力され、
+  `analysis_r_optimization` に71件(R=0.30〜1.00, step0.01)が書き込まれたことを
+  `psql` で確認。ただしこの2日分のサンプルは風が全体的に穏やかだったため、
+  どのRでも不適日数が0で最適Rの一意な決定打にはならなかった(R=0.30が採用された)。
+  U字カーブそのものを実データで見るには、より長い期間・強風日を含むデータで
+  再実行する必要がある(Phase 5のDashboardや長期データ取得時に確認)
+
+**決定事項:**
+- `analysis_r_optimization` テーブルに README §9 未記載の `city` 列を追加(複数都市対応のため)
+
+**確認事項 / 未確認:**
+- ローカル Postgres に検証用データ(tokyo, 2024-06-01~02の raw/processed/analysis結果)が
+  残ったまま
+- R値カーブのU字形状は今回の短期間・穏やかな気象データでは確認できていない
+  (ロジック自体は `tests/test_analysis.py` の人工データで検証済み)
+
+**次にやること(Phase 4 着手時):**
+- APScheduler(またはcron)で「毎日自動的に前日分を取得」するMVP簡易版の編成
+- 進阶:Airflow移行、`daily_pipeline.py` DAG で ingestion→processing→analysis を連結
+- Airflowはdocker-composeでローカル起動(webserver + scheduler + postgres metadata db)

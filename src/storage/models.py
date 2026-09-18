@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import DateTime, Float, String, func
+from sqlalchemy import Date, DateTime, Float, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -43,5 +43,27 @@ class ProcessedObservation(Base):
     humidity: Mapped[float | None] = mapped_column(Float, nullable=True)
     source: Mapped[str] = mapped_column(String(50))
     processed_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class RWindOptimizationResult(Base):
+    """One (R, uncomfortable-day-count) sample from the R grid search (see README §8-9).
+
+    `city` is not in the README's initial sketch but is added so results from
+    different cities don't collide once more than one city is analyzed.
+    """
+
+    __tablename__ = "analysis_r_optimization"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    city: Mapped[str] = mapped_column(String(100), index=True)
+    r_value: Mapped[float] = mapped_column(Float)
+    strong_wind_days: Mapped[int] = mapped_column(Integer)
+    weak_wind_days: Mapped[int] = mapped_column(Integer)
+    total_uncomfortable_days: Mapped[int] = mapped_column(Integer)
+    period_start: Mapped[datetime.date] = mapped_column(Date, index=True)
+    period_end: Mapped[datetime.date] = mapped_column(Date, index=True)
+    computed_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
