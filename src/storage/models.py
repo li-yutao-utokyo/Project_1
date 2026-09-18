@@ -26,3 +26,22 @@ class RawObservation(Base):
     ingested_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class ProcessedObservation(Base):
+    """Cleaned/standardized observation derived from raw_observations (see README §9)."""
+
+    __tablename__ = "processed_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    city: Mapped[str] = mapped_column(String(100), index=True)
+    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), index=True)
+    wind_speed: Mapped[float] = mapped_column(Float)
+    wind_direction: Mapped[float | None] = mapped_column(Float, nullable=True)
+    wind_direction_octant: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    temperature: Mapped[float] = mapped_column(Float)
+    humidity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str] = mapped_column(String(50))
+    processed_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

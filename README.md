@@ -150,10 +150,10 @@ urban-climate-etl/
 **验收标准**:能手动跑一次,数据库里能看到写入的原始观测数据。
 
 ### Phase 2:数据处理(Processing → Processed Storage)
-- [ ] 清洗:去重、缺失值处理、异常值(如风速为负数)过滤
-- [ ] 转换:统一时区、单位标准化(如风速统一为 m/s)
-- [ ] 写入 `processed_observations` 表
-- [ ] 测试:构造包含脏数据的样本,验证清洗逻辑
+- [x] 清洗:去重、缺失值处理、异常值(如风速为负数)过滤
+- [x] 转换:统一时区、单位标准化(如风速统一为 m/s)
+- [x] 写入 `processed_observations` 表
+- [x] 测试:构造包含脏数据的样本,验证清洗逻辑
 
 **验收标准**:能从 raw 表跑一次 transform,processed 表数据干净可用。
 

@@ -86,3 +86,44 @@
   風速のm/s統一、`wind_direction_octant` 8方位分類)
 - `processed_observations` テーブル定義
 - 汚いデータを含むサンプルでのクリーニングロジックのテスト
+
+---
+
+## 2026-09-18 (続き2): Phase 2 — データ処理(raw → processed)
+
+**やったこと:**
+- `src/storage/models.py`:`ProcessedObservation` モデルを追加
+  (`processed_observations` テーブル、`wind_direction_octant` 列を含む README §9 準拠のスキーマ)
+- `src/processing/clean.py`:
+  - `drop_duplicates()`:`(city, timestamp, source)` で重複排除(最新行を優先)
+  - `drop_missing_required()`:`wind_speed` / `temperature` が欠損した行を除去
+  - `filter_outliers()`:風速の負値・気温の非現実的な値・風向の範囲外値を除去
+- `src/processing/transform.py`:
+  - `ensure_utc_timestamp()`:タイムゾーンをUTCに統一
+  - `standardize_wind_speed()`:ソース別の換算係数(現状 open-meteo は 1.0)でm/sに統一
+  - `classify_wind_direction_octant()`:風向を8方位(N/NE/E/SE/S/SW/W/NW)に分類
+- `src/processing/run.py`:`python -m src.processing.run --city --start --end` CLI。
+  raw_observations を読み込み→clean→transform→該当期間の processed_observations を
+  削除してから再書き込み(同じ範囲を再実行しても冪等)
+- `tests/test_processing.py`:18ケース(既存6件+新規12件)。汚いデータサンプル
+  (重複行、負の風速、欠損気温、範囲外風向)でのクリーニング検証、8方位分類の境界値テスト、
+  SQLite in-memory での `run()` end-to-end テスト。ruff / pytest 全通過
+- テスト設計時の失敗と修正:最初のテストで複数行に同一 `timestamp` を使い回していたため、
+  意図しない重複排除で行が丸ごと1件に潰れてしまい3件失敗。各行に別々の時刻を持たせて修正
+  (`_at(hour, **overrides)` ヘルパーを追加)。8方位境界値のテストケースも一部誤り
+  (44度は NE であり N ではない)があったため修正
+- 実環境での動作確認:`python -m src.processing.run --city tokyo --start 2024-06-01
+  --end 2024-06-02` を実行し、Phase 1 で投入済みの48件の raw データから48件の
+  processed_observations が生成されたことを `psql` で確認(このサンプルには外れ値・
+  重複がなかったため件数は変わらず)
+
+**確認事項 / 未確認:**
+- ローカル Postgres の `raw_observations` / `processed_observations` には検証用データ
+  (tokyo, 2024-06-01~02)が残ったまま。実データでの本格運用時は整理が必要。
+
+**次にやること(Phase 3 着手時):**
+- 風向分類(8方位、`wind_direction_octant` は既に用意済み)と気温の相関統計
+- 歩行者高度風速換算(`pedestrian_wind_speed = R * observed_wind_speed`)
+- 非適風日数判定ロジック(強風/弱風閾値は可変)
+- `optimize_r.py`:Rのグリッドサーチで非適風日数合計が最小になるRを探索
+- 既知の入力での換算・判定ロジックのテスト
