@@ -176,9 +176,13 @@ matplotlib 图或表格验证,不必等 Dashboard 做好)。
 **验收标准**:DAG 能在 Airflow UI 里手动触发并成功跑完全流程,日志可查。
 
 ### Phase 5:可视化与部署(可选,时间允许再做)
-- [ ] Streamlit Dashboard:展示风向玫瑰图、气温-风速散点图、R值优化结果曲线
+- [x] Streamlit Dashboard:展示风向玫瑰图、气温-风速散点图、R值优化结果曲线
 - [ ] 云端部署:选 AWS 或 GCP 其中一个,把数据库换成托管服务,管道用 ECS/Cloud Run 跑
 - [ ] 完善 README 顶部为面向招聘方的展示版本(附架构图截图、Dashboard 截图)
+
+预览(2024年冬季东京数据,`docs/screenshots/dashboard_tokyo_2024q1.png`):北/西北风为主的
+风配图、气温-风速散点图、风向-气温统计表、R值网格搜索曲线。启动:`streamlit run
+src/dashboard/app.py`
 
 ---
 
