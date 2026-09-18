@@ -183,3 +183,47 @@
 - APScheduler(またはcron)で「毎日自動的に前日分を取得」するMVP簡易版の編成
 - 進阶:Airflow移行、`daily_pipeline.py` DAG で ingestion→processing→analysis を連結
 - Airflowはdocker-composeでローカル起動(webserver + scheduler + postgres metadata db)
+
+---
+
+## 2026-09-18 (続き4): Phase 4 — 編成自動化(APScheduler MVP + Airflow DAGコード)
+
+**やったこと:**
+- `src/orchestration/pipeline.py`:`run_daily_pipeline(city, target_date=None,
+  analysis_window_days=30)` を新設。ingestion→processing→analysis(直近30日の
+  ローリングウィンドウでR最適化を再計算)を1回の呼び出しでチェーンする共通ロジック。
+  APScheduler と Airflow DAG の両方から同じ関数を呼ぶことで、二重実装を避けた
+- `src/orchestration/scheduler.py`:APScheduler(`BlockingScheduler`)によるMVP簡易版。
+  `python -m src.orchestration.scheduler --once` で即時1回実行、`--hour` オプションで
+  毎日実行時刻(UTC)を指定可能。対象都市は環境変数 `PIPELINE_CITIES`(カンマ区切り、
+  既定 "tokyo")で設定。1都市の失敗が他都市の実行を止めないよう例外を個別にキャッチ
+- `src/orchestration/dags/daily_pipeline.py`:Airflow DAG(進阶版)。
+  ingestion/processing/analysis を3つの独立した `PythonOperator` タスクとして
+  `ingest >> process >> analyze` でチェーン(1関数にまとめず、Airflow UI 上で
+  各ステップの成功/失敗・ログが個別に見えるようにするため)。毎日 01:00 UTC 実行、
+  `catchup=False`
+- `tests/test_orchestration.py`:10ケース追加(33 passed)。`run_daily_pipeline` が
+  正しい日付(既定=前日UTC、30日ウィンドウ)で各ステップを呼び出すことを monkeypatch で検証、
+  `PIPELINE_CITIES` のパース、1都市が例外を投げても他都市の処理が継続することを確認
+- ruff は Airflow 未インストールでも構文チェックのみで通過することを確認済み
+  (DAGファイルは実際には Airflow コンテナ内でのみ import・実行される想定)
+- 実環境での動作確認:
+  - `run_daily_pipeline('tokyo', date(2024,6,1), analysis_window_days=2)` を直接呼び出し、
+    ingestion 24件・processing 24件・analysis 71件(R=0.3〜1.0)が実行されたことを確認
+  - `python -m src.orchestration.scheduler --once` を実行し、実際に「昨日(2026-09-17)」の
+    データを Open-Meteo から取得→処理→直近30日分析まで一気通貫で成功することを確認
+    (Open-Meteo archive API は前日分もすでに提供していることが分かった)
+
+**未完了 / 次回の論点:**
+- README Phase 4 の受け入れ基準(「DAGがAirflow UIで手動トリガーでき、全工程が成功し
+  ログが見られること」)はまだ満たしていない。`daily_pipeline.py` のコードは書いたが、
+  Airflowをdocker-composeで実際に起動して動作確認するステップが残っている
+- Airflow は apache/airflow イメージが大きく(数GB規模)、webserver+scheduler+
+  メタデータDBなど複数コンテナが必要になるため、ローカル環境のリソース・実行時間への
+  影響を作者に確認してから着手する方針とした(README §11「大きな判断は事前確認」に沿う)
+
+**次にやること(Phase 4 継続 / Phase 5 着手時):**
+- (要確認)Airflow用の docker-compose 追加(webserver + scheduler + metadata db)、
+  プロジェクト依存をインストールしたカスタムイメージ、`.env` 経由でアプリ用DBに接続
+- DAGをAirflow UIで手動トリガーし、3タスクが成功してログが見えることを確認
+- Streamlit Dashboard(風配図、気温-風速散布図、R値最適化曲線)

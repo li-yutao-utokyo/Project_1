@@ -169,8 +169,8 @@ urban-climate-etl/
 matplotlib 图或表格验证,不必等 Dashboard 做好)。
 
 ### Phase 4:编排自动化
-- [ ] MVP 简化版:先用 `APScheduler` 或 cron 实现"每日自动抓取昨日数据"
-- [ ] 进阶:迁移到 Airflow,写 `daily_pipeline.py` DAG,串联 ingestion → processing → analysis 三个 Task
+- [x] MVP 简化版:先用 `APScheduler` 或 cron 实现"每日自动抓取昨日数据"
+- [x] 进阶:迁移到 Airflow,写 `daily_pipeline.py` DAG,串联 ingestion → processing → analysis 三个 Task
 - [ ] Airflow 本地用 Docker Compose 起(webserver + scheduler + postgres metadata db)
 
 **验收标准**:DAG 能在 Airflow UI 里手动触发并成功跑完全流程,日志可查。
