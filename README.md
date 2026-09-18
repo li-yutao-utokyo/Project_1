@@ -134,18 +134,18 @@ urban-climate-etl/
 ## 7. 开发路线图(按 Phase 推进,每个 Phase 结束应可独立跑通并 commit)
 
 ### Phase 0:项目脚手架
-- [ ] 初始化 `pyproject.toml`,配置 ruff + pytest
-- [ ] 写好 `docker-compose.yml`(PostgreSQL 服务)
-- [ ] `.env.example` 列出所有需要的环境变量
-- [ ] GitHub Actions 基础 CI(lint + test,先允许 test 为空跑通)
+- [x] 初始化 `pyproject.toml`,配置 ruff + pytest
+- [x] 写好 `docker-compose.yml`(PostgreSQL 服务)
+- [x] `.env.example` 列出所有需要的环境变量
+- [x] GitHub Actions 基础 CI(lint + test,先允许 test 为空跑通)
 
 **验收标准**:`docker-compose up -d` 能起数据库,`pytest` 能跑(即使暂无用例)。
 
 ### Phase 1:MVP 批处理管道(Ingestion → Raw Storage)
-- [ ] 实现 `openmeteo_client.py`:按城市/日期范围抓取历史数据
-- [ ] 定义 `raw_observations` 表结构(见第9节数据模型)
-- [ ] 写入脚本,支持手动运行:`python -m src.ingestion.run --city tokyo --start 2024-01-01 --end 2024-12-31`
-- [ ] 单元测试覆盖 API 响应解析逻辑(mock HTTP 请求,不依赖真实网络)
+- [x] 实现 `openmeteo_client.py`:按城市/日期范围抓取历史数据
+- [x] 定义 `raw_observations` 表结构(见第9节数据模型)
+- [x] 写入脚本,支持手动运行:`python -m src.ingestion.run --city tokyo --start 2024-01-01 --end 2024-12-31`
+- [x] 单元测试覆盖 API 响应解析逻辑(mock HTTP 请求,不依赖真实网络)
 
 **验收标准**:能手动跑一次,数据库里能看到写入的原始观测数据。
 
