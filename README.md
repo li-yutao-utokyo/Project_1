@@ -106,7 +106,8 @@ Airflow(Docker Compose でDAGを手動トリガーして確認する場合)や�
 このプロジェクトは [Claude Code](https://claude.com/claude-code) と協働しながら、
 Phase 0(スキャフォールド)→ Phase 1(取得)→ Phase 2(処理)→ Phase 3(分析)→
 Phase 4(編成自動化)→ Phase 5(可視化)の順に段階的に構築しました。Phase 0〜4は完了、
-Phase 5はDashboardまで完了(クラウドデプロイは未着手)しています。
+Phase 5もDashboard・本README整備まで完了しています(クラウドデプロイは、実費用・
+クラウド口座の認証情報が必要になるため、本作品集の対象範囲外としてスコープ外にしています)。
 
 - 詳しい開発仕様・データモデル・各Phaseの受け入れ基準: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 - 技術選定の変更とその理由(ADR形式): [docs/architecture.md](docs/architecture.md)

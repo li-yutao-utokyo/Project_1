@@ -387,3 +387,15 @@ Dashboard(1/3項目)のみ完了した状態でいったん区切り。両タス
 **次にやること(要確認):**
 - クラウドデプロイ(AWS/GCP、費用・認証情報が絡むため着手前に方針確認)
 - GitHubへのpush、README表示の実機確認
+
+**2026-09-18 作者最終確認:** クラウドデプロイは本プロジェクトのスコープ外とすることを決定
+(Phase 5の残りタスクとしては再開しない)。`docs/DEVELOPMENT.md` §7 Phase 5 と
+`README.md` の該当箇所に、TODOではなく「スコープ外」である旨を明記した。
+
+**Phase 0〜5、区切り:**
+Phase 0(スキャフォールド)→ Phase 1(Ingestion)→ Phase 2(Processing)→
+Phase 3(Analysis / R値最適化)→ Phase 4(Orchestration、APScheduler + Airflow実機検証)→
+Phase 5(Dashboard + 招聘向けREADME)まで一通り完了。クラウドデプロイのみ、費用・認証情報の
+都合でスコープ外として明示的にクローズ。次にこのプロジェクトを再開する際は、まず本ログと
+`docs/DEVELOPMENT.md` を読んで現状を把握すること。GitHubへのpushはまだ行っていないため、
+公開する場合はその作業から。
