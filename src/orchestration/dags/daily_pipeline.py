@@ -18,7 +18,10 @@ CITIES = ["tokyo"]
 
 
 def _target_date(**context) -> datetime.date:
-    return context["data_interval_start"].date()
+    # logical_date (not data_interval_start) so a manually-triggered run's
+    # --logical-date controls which day gets processed; for a scheduled daily
+    # cron run the two coincide anyway.
+    return context["logical_date"].date()
 
 
 def ingest_task(city: str, **context) -> None:

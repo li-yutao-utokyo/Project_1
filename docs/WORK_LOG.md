@@ -227,3 +227,64 @@
   プロジェクト依存をインストールしたカスタムイメージ、`.env` 経由でアプリ用DBに接続
 - DAGをAirflow UIで手動トリガーし、3タスクが成功してログが見えることを確認
 - Streamlit Dashboard(風配図、気温-風速散布図、R値最適化曲線)
+
+---
+
+## 2026-09-18 (続き5): Phase 4 完了 — Airflow を実際にDocker Composeで起動・検証
+
+作者確認の結果、「今すぐ構築・検証する」を選択。以下を実施:
+
+**やったこと:**
+- 現行の Airflow 最新安定版を調査(WebFetch でDocker Hub/公式ドキュメントを確認)した結果、
+  3.3.2 であり、公式クイックスタートの docker-compose.yaml は CeleryExecutor 前提
+  (redis, worker, triggerer, dag-processor, api-server, flower 等7サービス以上、
+  RAM 4〜8GB推奨)に変わっていることが判明。README想定の軽量構成(3サービス)とズレるため、
+  `docs/architecture.md` に決定事項として記録した上で、Airflow 3.x の `airflow standalone`
+  コマンド(webserver/api-server・scheduler・dag-processor・triggerer を1プロセスに
+  まとめる、公式ドキュメントが最初のローカル検証に推奨する方式)+ `LocalExecutor` を採用
+- `docker/airflow/Dockerfile`:`apache/airflow:3.3.2-python3.11` をベースに、Airflowの
+  constraints ファイルを使って `httpx`/`pandas`/`numpy`/`matplotlib`/`psycopg[binary]`/
+  `python-dotenv` を追加インストール(SQLAlchemy等Airflow自身の依存とのバージョン衝突を
+  回避するため、requirements には含めずAirflow側の既存バージョンに委ねた)
+- `docker-compose.yml` に `airflow-postgres`(メタデータDB専用、アプリ用DBとは分離)と
+  `airflow`(standalone、`LocalExecutor`、`DATABASE_URL`でアプリ用Postgresに接続、
+  ポート8080でUI公開)を追加
+- `docker-compose build airflow` → `docker-compose up -d airflow-postgres airflow` で
+  起動。ビルドはAirflowベースイメージに既にpandas/httpx/numpy/psycopg/python-dotenvが
+  含まれており、matplotlib関連のみ新規インストールで完了(依存衝突なし)
+- `airflow dags list` でDAGがインポートエラーなく認識されることを確認 → `unpause` →
+  `airflow dags trigger --logical-date 2024-06-01T00:00:00+00:00` で手動トリガー
+- **バグ発見と修正**:最初のトリガーで `daily_pipeline.py` の `_target_date()` が
+  `context["data_interval_start"]` を参照していたため、手動トリガー時は
+  `--logical-date` を指定しても実際の対象日が「今日」になってしまう不具合を発見
+  (Airflow 3.xでは手動トリガーのdata_intervalは既定でトリガー時刻になるため)。
+  `logical_date` を参照するよう修正し(スケジュール実行では両者は一致するため実害なし)、
+  再トリガーで `2024-06-05` として正しく処理されることを確認
+- `airflow tasks states-for-dag-run` で3タスク(ingest_tokyo → process_tokyo →
+  analyze_tokyo)すべて `success` であることを確認。タスクログ(JSON構造化ログ、
+  `/opt/airflow/logs/dag_id=.../task_id=.../attempt=1.log`)で
+  「ingested 24 raw rows」「processed 24 rows」「optimal R=0.30」を確認
+  (Airflow 3.xでは `airflow tasks logs` CLIサブコマンドが廃止されており、ログファイルを
+  直接catする必要があった)
+- Airflow経由で書き込まれたデータが、アプリ用の共有Postgres(`raw_observations`)に
+  実際に反映されていることを `psql` で確認 → DB接続設定(`DATABASE_URL`経由で
+  `postgres` サービスに到達)が正しいことを実証
+- `docker-compose up -d`(サービス指定なし)で `postgres` コンテナが再作成された際も
+  named volume のおかげでデータが保持されることを確認
+- 管理者UI初回パスワードの取得方法を確認:
+  `docker exec urban-climate-airflow cat /opt/airflow/simple_auth_manager_passwords.json.generated`
+  (Airflow 3.x standalone は `_AIRFLOW_WWW_USER_*` 環境変数ではなく、このファイルに
+  自動生成パスワードを書き出す方式に変わっている)
+- README §10 に Airflow起動の手順(オプション)を追記、§7 Phase 4 の3項目すべてに
+  チェックを入れた。ruff / pytest は変更なし(33 passed)
+
+**確認事項 / 未確認:**
+- ローカル環境で `docker-compose up -d` のたびに Airflow standalone のパスワードが
+  再生成される可能性がある(コンテナ再作成時は要再確認)
+- Airflow UI (http://localhost:8080) 自体をブラウザで目視確認したのは作者側の想定
+  (このセッションにはブラウザ操作手段がないため、CLI経由でのDAGトリガー・状態確認・
+  ログ確認で代替した)
+
+**次にやること(Phase 5 着手時):**
+- Streamlit Dashboard(風配図、気温-風速散布図、R値最適化曲線)
+- 実装量に応じて、クラウド(AWS/GCP)へのデプロイ(Phase 5後半、オプション)

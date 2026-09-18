@@ -17,5 +17,51 @@ services:
       timeout: 5s
       retries: 5
 
+  airflow-postgres:
+    image: postgres:15
+    container_name: urban-climate-airflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Phase 4 (advanced orchestration). Runs Airflow's webserver/api-server,
+  # scheduler, DAG processor, and triggerer as a single `standalone` process
+  # (LocalExecutor) instead of the heavier Celery+Redis quick-start stack --
+  # see docs/architecture.md (2026-09-18) for why.
+  airflow:
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+    container_name: urban-climate-airflow
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/project/src/orchestration/dags
+      PYTHONPATH: /opt/airflow/project
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-climate}:${POSTGRES_PASSWORD:-climate}@postgres:5432/${POSTGRES_DB:-urban_climate}
+      OPENMETEO_BASE_URL: ${OPENMETEO_BASE_URL:-https://archive-api.open-meteo.com/v1/archive}
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/opt/airflow/project
+    command: standalone
+
 volumes:
   postgres_data:
+  airflow_postgres_data:

@@ -1,0 +1,6 @@
+httpx
+pandas
+numpy
+matplotlib
+psycopg[binary]
+python-dotenv
